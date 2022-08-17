@@ -4,7 +4,7 @@ version = "0.1.0"
 description = ""
 authors = [ "Ben <benjamin@selas.studio>"]
 readme = "README.md"
-dependencies = {python = "^3.9", torch = { version ="=1.12.0+cu113", source = "pytorch" }, pytorch-lightning = "^1.7.1"}
+dependencies = {python = "^3.9", torch = { version ="=1.12.0+cu113", source = "pytorch" }}
 
 [[tool.poetry.source]]
 name = "pytorch"

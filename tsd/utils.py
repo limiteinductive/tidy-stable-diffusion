@@ -1,5 +1,6 @@
 import importlib
 import multiprocessing as mp
+import random
 from collections import abc
 from inspect import isfunction
 from queue import Queue
@@ -9,6 +10,29 @@ import numpy as np
 import torch
 from einops import rearrange
 from PIL import Image, ImageDraw, ImageFont
+
+
+def seed_everything(seed: int = None, workers: bool = False) -> int:
+    max_seed_value = np.iinfo(np.uint32).max
+    min_seed_value = np.iinfo(np.uint32).min
+
+    def select_seed_randomly(
+        min_seed_value: int = min_seed_value, max_seed_value: int = max_seed_value
+    ) -> int:
+        return random.randint(min_seed_value, max_seed_value)
+
+    if not seed:
+        seed = select_seed_randomly()
+
+    if not (min_seed_value <= seed <= max_seed_value):
+        seed = select_seed_randomly()
+
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+
+    return seed
 
 
 def log_txt_as_img(wh, xc, size=10):
@@ -271,7 +295,7 @@ def normal_kl(mean1, logvar1, mean2, logvar2):
             tensor = obj
             break
     assert tensor is not None, "at least one argument must be a Tensor"
-    
+
     logvar1, logvar2 = [
         x if isinstance(x, torch.Tensor) else torch.tensor(x).to(tensor)
         for x in (logvar1, logvar2)

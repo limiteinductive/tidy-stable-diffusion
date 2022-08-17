@@ -1,18 +1,15 @@
 import argparse
 import os
-
 from itertools import islice
 
 import numpy as np
 import torch
 from einops import rearrange
+from tsd.autoencoder import AutoencoderKL, FrozenCLIPEmbedder
+from tsd.sampling import LatentDiffusion, PLMSSampler
 from PIL import Image
-from pytorch_lightning import seed_everything
+from tsd.utils import seed_everything
 from tqdm import tqdm, trange
-
-from ldm.sampling import LatentDiffusion, PLMSSampler
-from ldm.autoencoder import FrozenCLIPEmbedder, AutoencoderKL
-
 
 
 def load_model_from_checkpoint(model, ckpt):
@@ -72,12 +69,6 @@ def main():
         default=512,
         help="image width, in pixel space",
     )
-    # parser.add_argument(
-    #     "--f",
-    #     type=int,
-    #     default=8,
-    #     help="downsampling factor",
-    # )
     parser.add_argument(
         "--batch_size",
         type=int,
@@ -102,12 +93,6 @@ def main():
         help="if specified, load prompts from this file",
     )
     parser.add_argument(
-        "--config",
-        type=str,
-        default="configs/stable-diffusion/v1-inference.yaml",
-        help="path to config which constructs model",
-    )
-    parser.add_argument(
         "--ckpt",
         type=str,
         default="models/ldm/stable-diffusion-v1/model.ckpt",
@@ -119,13 +104,19 @@ def main():
         default=42,
         help="the seed (for reproducible sampling)",
     )
+    parser.add_argument(
+        "--device",
+        type=str,
+        default="cuda",
+        help="on which device to execute the model on",
+    )
+
     opt = parser.parse_args()
 
     C = 4
     F = 8
 
     seed_everything(opt.seed)
-
 
     ddconfig = {
         "double_z": True,
@@ -137,7 +128,7 @@ def main():
         "ch_mult": [1, 2, 4, 4],
         "num_res_blocks": 2,
         "attn_resolutions": [],
-        "dropout": 0.0
+        "dropout": 0.0,
     }
 
     print("loading autoencoder")
@@ -163,11 +154,11 @@ def main():
         channels=4,
         cond_stage_trainable=False,
         scale_factor=0.18215,
+        device=opt.device,
     )
     load_model_from_checkpoint(model, "../sd-v1-3-full-ema.ckpt")
 
-    device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
-    model = model.to(device)
+    model = model.to(opt.device)
 
     sampler = PLMSSampler(model)
 
@@ -215,9 +206,6 @@ def main():
                         )
                         base_count += 1
 
-    print(
-        f"Your samples are ready and waiting for you here: \n{outpath} \n" f" \nEnjoy."
-    )
 
 
 if __name__ == "__main__":

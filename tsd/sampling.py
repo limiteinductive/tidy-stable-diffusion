@@ -1,13 +1,13 @@
 from functools import partial
 
 import numpy as np
-import pytorch_lightning as pl
 import torch
 import torch.nn as nn
-from tqdm import tqdm
 from einops import rearrange
+from .utils import (DiagonalGaussianDistribution, default, exists,
+                       mean_flat, normal_kl)
+from tqdm import tqdm
 
-from ldm.utils import default, exists, mean_flat, DiagonalGaussianDistribution, normal_kl
 from .unet import UNetModel
 
 
@@ -16,12 +16,14 @@ def extract_into_tensor(a, t, x_shape):
     out = a.gather(-1, t)
     return out.reshape(b, *((1,) * (len(x_shape) - 1)))
 
+
 def noise_like(shape, device, repeat=False):
     repeat_noise = lambda: torch.randn((1, *shape[1:]), device=device).repeat(
         shape[0], *((1,) * (len(shape) - 1))
     )
     noise = lambda: torch.randn(shape, device=device)
     return repeat_noise() if repeat else noise()
+
 
 def make_beta_schedule(
     schedule, n_timestep, linear_start=1e-4, linear_end=2e-2, cosine_s=8e-3
@@ -58,9 +60,7 @@ def make_beta_schedule(
     return betas.numpy()
 
 
-def make_ddim_timesteps(
-    ddim_discr_method, num_ddim_timesteps, num_ddpm_timesteps
-):
+def make_ddim_timesteps(ddim_discr_method, num_ddim_timesteps, num_ddpm_timesteps):
     if ddim_discr_method == "uniform":
         c = num_ddpm_timesteps // num_ddim_timesteps
         ddim_timesteps = np.asarray(list(range(0, num_ddpm_timesteps, c)))
@@ -89,7 +89,7 @@ def make_ddim_sampling_parameters(alphacums, ddim_timesteps, eta):
     return sigmas, alphas, alphas_prev
 
 
-class DDPM(pl.LightningModule):
+class DDPM(nn.Module):
     def __init__(
         self,
         timesteps=1000,
@@ -431,46 +431,6 @@ class DDPM(pl.LightningModule):
         x = x.to(memory_format=torch.contiguous_format).float()
         return x
 
-    # @torch.no_grad()
-    # def log_images(self, batch, N=8, n_row=2, sample=True, return_keys=None, **kwargs):
-    #     log = dict()
-    #     x = self.get_input(batch, self.first_stage_key)
-    #     N = min(x.shape[0], N)
-    #     n_row = min(x.shape[0], n_row)
-    #     x = x.to(self.device)[:N]
-    #     log["inputs"] = x
-
-    #     # get diffusion row
-    #     diffusion_row = list()
-    #     x_start = x[:n_row]
-
-    #     for t in range(self.num_timesteps):
-    #         if t % self.log_every_t == 0 or t == self.num_timesteps - 1:
-    #             t = repeat(torch.tensor([t]), "1 -> b", b=n_row)
-    #             t = t.to(self.device).long()
-    #             noise = torch.randn_like(x_start)
-    #             x_noisy = self.q_sample(x_start=x_start, t=t, noise=noise)
-    #             diffusion_row.append(x_noisy)
-
-    #     log["diffusion_row"] = self._get_rows_from_list(diffusion_row)
-
-    #     if sample:
-    #         # get denoise row
-    #         with self.ema_scope("Plotting"):
-    #             samples, denoise_row = self.sample(
-    #                 batch_size=N, return_intermediates=True
-    #             )
-
-    #         log["samples"] = samples
-    #         log["denoise_row"] = self._get_rows_from_list(denoise_row)
-
-    #     if return_keys:
-    #         if np.intersect1d(list(log.keys()), return_keys).shape[0] == 0:
-    #             return log
-    #         else:
-    #             return {key: log[key] for key in return_keys}
-    #     return log
-
 
 class LatentDiffusion(DDPM):
     """main class"""
@@ -486,7 +446,7 @@ class LatentDiffusion(DDPM):
         cond_stage_forward=None,
         scale_factor=1.0,
         scale_by_std=False,
-        *args,
+        device: str="cuda",
         **kwargs,
     ):
         self.num_timesteps_cond = default(num_timesteps_cond, 1)
@@ -499,6 +459,7 @@ class LatentDiffusion(DDPM):
         self.cond_stage_key = cond_stage_key
         self.first_stage_model = autoencoder
         self.cond_stage_model = clipembedder
+        self.device=device
         if not scale_by_std:
             self.scale_factor = scale_factor
         else:
@@ -541,8 +502,6 @@ class LatentDiffusion(DDPM):
         self.shorten_cond_schedule = self.num_timesteps_cond > 1
         if self.shorten_cond_schedule:
             self.make_cond_schedule()
-
-
 
     def get_first_stage_encoding(self, encoder_posterior):
         if isinstance(encoder_posterior, DiagonalGaussianDistribution):
@@ -755,7 +714,6 @@ class LatentDiffusion(DDPM):
                 self, model_out, x, t, c, **corrector_kwargs
             )
 
-
         if self.parameterization == "eps":
             x_recon = self.predict_start_from_noise(x, t=t, noise=model_out)
         elif self.parameterization == "x0":
@@ -869,12 +827,10 @@ class LatentDiffusion(DDPM):
 
         if start_T is not None:
             timesteps = min(timesteps, start_T)
-        iterator = (
-            tqdm(
-                reversed(range(0, timesteps)),
-                desc="Progressive Generation",
-                total=timesteps,
-            )
+        iterator = tqdm(
+            reversed(range(0, timesteps)),
+            desc="Progressive Generation",
+            total=timesteps,
         )
         if type(temperature) == float:
             temperature = [temperature] * timesteps
@@ -943,8 +899,8 @@ class LatentDiffusion(DDPM):
 
         if start_T is not None:
             timesteps = min(timesteps, start_T)
-        iterator = (
-            tqdm(reversed(range(0, timesteps)), desc="Sampling t", total=timesteps)
+        iterator = tqdm(
+            reversed(range(0, timesteps)), desc="Sampling t", total=timesteps
         )
 
         if mask is not None:
@@ -1054,9 +1010,7 @@ class PLMSSampler(object):
                 attr = attr.to(torch.device("cuda"))
         setattr(self, name, attr)
 
-    def make_schedule(
-        self, ddim_num_steps, ddim_discretize="uniform", ddim_eta=0.0
-    ):
+    def make_schedule(self, ddim_num_steps, ddim_discretize="uniform", ddim_eta=0.0):
         if ddim_eta != 0:
             raise ValueError("ddim_eta must be 0 for PLMS")
         self.ddim_timesteps = make_ddim_timesteps(

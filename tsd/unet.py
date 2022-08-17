@@ -1,10 +1,11 @@
-import torch
 import math
-import torch.nn as nn
-from einops import rearrange, repeat
-import torch.nn.functional as F
 
-from ldm.utils import default, exists
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+from einops import rearrange, repeat
+from .utils import default, exists
+
 
 class CheckpointFunction(torch.autograd.Function):
     @staticmethod
@@ -37,6 +38,7 @@ class CheckpointFunction(torch.autograd.Function):
         del output_tensors
         return (None, None) + input_grads
 
+
 def checkpoint(func, inputs, params, flag):
     """
     Evaluate a function without caching intermediate activations, allowing for
@@ -52,7 +54,6 @@ def checkpoint(func, inputs, params, flag):
         return CheckpointFunction.apply(func, len(inputs), *args)
     else:
         return func(*inputs)
-
 
 
 def timestep_embedding(timesteps, dim, max_period=10000, repeat_only=False):
@@ -948,4 +949,3 @@ class UNetModel(nn.Module):
             return self.id_predictor(h)
         else:
             return self.out(h)
-

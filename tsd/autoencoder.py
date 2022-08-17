@@ -4,13 +4,9 @@ import math
 import numpy as np
 import torch
 import torch.nn as nn
-
 from einops import rearrange
-
-from ldm.utils import DiagonalGaussianDistribution
-
-
-from transformers import CLIPTokenizer, CLIPTextModel
+from .utils import DiagonalGaussianDistribution
+from transformers import CLIPTextModel, CLIPTokenizer
 
 
 def get_timestep_embedding(timesteps, embedding_dim):
@@ -43,6 +39,7 @@ def Normalize(in_channels, num_groups=32):
     return torch.nn.GroupNorm(
         num_groups=num_groups, num_channels=in_channels, eps=1e-6, affine=True
     )
+
 
 class LinearAttention(nn.Module):
     def __init__(self, dim, heads=4, dim_head=32):
@@ -993,10 +990,8 @@ class AutoencoderKL(nn.Module):
         x = x.permute(0, 3, 1, 2).to(memory_format=torch.contiguous_format).float()
         return x
 
-
     def get_last_layer(self):
         return self.decoder.conv_out.weight
-
 
     def to_rgb(self, x):
         assert self.image_key == "segmentation"

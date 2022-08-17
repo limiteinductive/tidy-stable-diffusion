@@ -4,11 +4,11 @@ import numpy as np
 import torch
 import torch.nn as nn
 from einops import rearrange
-from .utils import (DiagonalGaussianDistribution, default, exists,
-                       mean_flat, normal_kl)
 from tqdm import tqdm
 
 from .unet import UNetModel
+from .utils import (DiagonalGaussianDistribution, default, exists, mean_flat,
+                    normal_kl)
 
 
 def extract_into_tensor(a, t, x_shape):
@@ -446,7 +446,7 @@ class LatentDiffusion(DDPM):
         cond_stage_forward=None,
         scale_factor=1.0,
         scale_by_std=False,
-        device: str="cuda",
+        device: str = "cuda",
         **kwargs,
     ):
         self.num_timesteps_cond = default(num_timesteps_cond, 1)
@@ -459,7 +459,7 @@ class LatentDiffusion(DDPM):
         self.cond_stage_key = cond_stage_key
         self.first_stage_model = autoencoder
         self.cond_stage_model = clipembedder
-        self.device=device
+        self.device = device
         if not scale_by_std:
             self.scale_factor = scale_factor
         else:

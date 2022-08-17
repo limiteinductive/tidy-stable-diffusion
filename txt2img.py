@@ -4,10 +4,11 @@ import os
 import numpy as np
 import torch
 from einops import rearrange
-from tsd.sampling import LatentDiffusion, PLMSSampler
 from PIL import Image
-from tsd.utils import seed_everything
 from tqdm import tqdm, trange
+
+from tsd.sampling import LatentDiffusion, PLMSSampler
+from tsd.utils import seed_everything
 
 
 def main():
@@ -106,12 +107,8 @@ def main():
 
     seed_everything(opt.seed)
 
-    autoencoder = torch.load("sd_autoencoder.pt")
-    embedder = torch.load("sd_embedder.pt")
     model = torch.load("sd_model.pt")
-    # model = model.to(opt.device)
     sampler = PLMSSampler(model)
-
     os.makedirs(opt.outdir, exist_ok=True)
 
     assert opt.prompt is not None
@@ -154,7 +151,6 @@ def main():
                             os.path.join(sample_path, f"{base_count:05}.png")
                         )
                         base_count += 1
-
 
 
 if __name__ == "__main__":

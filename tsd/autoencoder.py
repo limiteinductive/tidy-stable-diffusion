@@ -5,8 +5,9 @@ import numpy as np
 import torch
 import torch.nn as nn
 from einops import rearrange
-from .utils import DiagonalGaussianDistribution
 from transformers import CLIPTextModel, CLIPTokenizer
+
+from .utils import DiagonalGaussianDistribution
 
 
 def get_timestep_embedding(timesteps, embedding_dim):

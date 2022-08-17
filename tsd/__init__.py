@@ -33,7 +33,7 @@ def run_stable_diffusion(
             for prompts in tqdm(data, desc="data"):
                 uc = None
                 if guidance_scale != 1.0:
-                    uc = model.get_learned_conditioning(opt.batch_size * [""])
+                    uc = model.get_learned_conditioning(batch_size * [""])
                 if isinstance(prompts, tuple):
                     prompts = list(prompts)
                 c = model.get_learned_conditioning(prompts)

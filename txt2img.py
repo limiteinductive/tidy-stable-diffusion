@@ -118,26 +118,14 @@ def main():
 
     seed_everything(opt.seed)
 
-    ddconfig = {
-        "double_z": True,
-        "z_channels": 4,
-        "resolution": 256,
-        "in_channels": 3,
-        "out_ch": 3,
-        "ch": 128,
-        "ch_mult": [1, 2, 4, 4],
-        "num_res_blocks": 2,
-        "attn_resolutions": [],
-        "dropout": 0.0,
-    }
-
     print("loading autoencoder")
-    autoencoder = AutoencoderKL(ddconfig=ddconfig, embed_dim=4)
+    autoencoder = torch.load("sd_autoencoder.pt")  # AutoencoderKL(ddconfig=ddconfig, embed_dim=4)
 
-    load_model_from_checkpoint(autoencoder, "../sd-v1-3-full-ema.ckpt")
+    # load_model_from_checkpoint(autoencoder, "sd_autoencoder.pt")
     print("loading embedder")
-    embedder = FrozenCLIPEmbedder().eval()
-    load_model_from_checkpoint(embedder, "../sd-v1-3-full-ema.ckpt")
+    # embedder = FrozenCLIPEmbedder().eval()
+    # load_model_from_checkpoint(embedder, "sd_embedder.pt")
+    embedder = torch.load("sd_embedder.pt")
 
     print("loading model")
     model = LatentDiffusion(
@@ -156,7 +144,11 @@ def main():
         scale_factor=0.18215,
         device=opt.device,
     )
-    load_model_from_checkpoint(model, "../sd-v1-3-full-ema.ckpt")
+    
+
+    unet = torch.load("sd_unet.pt")
+    #  model.model.diffusion_model
+    # load_model_from_checkpoint(unet, "./sd_unet.pt")
 
     model = model.to(opt.device)
 

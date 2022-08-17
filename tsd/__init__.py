@@ -67,3 +67,5 @@ def run_stable_diffusion(
 def save_samples(samples: List[np.ndarray], path: str) -> None:
     for i, sample in enumerate(samples):
         Image.fromarray(sample).save(f"{path}/{i}.png")
+
+

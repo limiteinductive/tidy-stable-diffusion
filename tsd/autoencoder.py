@@ -993,14 +993,6 @@ class AutoencoderKL(nn.Module):
     def get_last_layer(self):
         return self.decoder.conv_out.weight
 
-    def to_rgb(self, x):
-        assert self.image_key == "segmentation"
-        if not hasattr(self, "colorize"):
-            self.register_buffer("colorize", torch.randn(3, x.shape[1], 1, 1).to(x))
-        x = F.conv2d(x, weight=self.colorize)
-        x = 2.0 * (x - x.min()) / (x.max() - x.min()) - 1.0
-        return x
-
 
 class FrozenCLIPEmbedder(nn.Module):
     """Uses the CLIP transformer encoder for text (from Hugging Face)"""

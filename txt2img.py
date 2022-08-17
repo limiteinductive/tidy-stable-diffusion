@@ -1,25 +1,13 @@
 import argparse
 import os
-from itertools import islice
 
 import numpy as np
 import torch
 from einops import rearrange
-from tsd.autoencoder import AutoencoderKL, FrozenCLIPEmbedder
 from tsd.sampling import LatentDiffusion, PLMSSampler
 from PIL import Image
 from tsd.utils import seed_everything
 from tqdm import tqdm, trange
-
-
-def load_model_from_checkpoint(model, ckpt):
-    print(f"Loading model from {ckpt}")
-    pl_sd = torch.load(ckpt, map_location="cpu")
-    sd = pl_sd["state_dict"]
-    m, u = model.load_state_dict(sd, strict=False)
-    model.cuda()
-    model.eval()
-    return model
 
 
 def main():
@@ -101,7 +89,7 @@ def main():
     parser.add_argument(
         "--seed",
         type=int,
-        default=42,
+        default=None,
         help="the seed (for reproducible sampling)",
     )
     parser.add_argument(
@@ -118,44 +106,13 @@ def main():
 
     seed_everything(opt.seed)
 
-    print("loading autoencoder")
-    autoencoder = torch.load("sd_autoencoder.pt")  # AutoencoderKL(ddconfig=ddconfig, embed_dim=4)
-
-    # load_model_from_checkpoint(autoencoder, "sd_autoencoder.pt")
-    print("loading embedder")
-    # embedder = FrozenCLIPEmbedder().eval()
-    # load_model_from_checkpoint(embedder, "sd_embedder.pt")
+    autoencoder = torch.load("sd_autoencoder.pt")
     embedder = torch.load("sd_embedder.pt")
-
-    print("loading model")
-    model = LatentDiffusion(
-        autoencoder,
-        embedder,
-        linear_start=0.00085,
-        linear_end=0.0120,
-        num_timesteps_cond=1,
-        log_every_t=200,
-        timesteps=1000,
-        first_stage_key="jpg",
-        cond_stage_key="txt",
-        image_size=64,
-        channels=4,
-        cond_stage_trainable=False,
-        scale_factor=0.18215,
-        device=opt.device,
-    )
-    
-
-    unet = torch.load("sd_unet.pt")
-    #  model.model.diffusion_model
-    # load_model_from_checkpoint(unet, "./sd_unet.pt")
-
-    model = model.to(opt.device)
-
+    model = torch.load("sd_model.pt")
+    # model = model.to(opt.device)
     sampler = PLMSSampler(model)
 
     os.makedirs(opt.outdir, exist_ok=True)
-    outpath = opt.outdir
 
     assert opt.prompt is not None
     data = [opt.batch_size * [opt.prompt]]

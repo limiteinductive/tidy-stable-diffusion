@@ -26,7 +26,7 @@ def run_stable_diffusion(
     sampler = PLMSSampler(model)
 
     data = [batch_size * [prompt]]
-    output = []
+    outputs= []
 
     with torch.no_grad():
         with torch.autocast(device_type="cuda"):
@@ -54,18 +54,19 @@ def run_stable_diffusion(
                     (x_samples_ddim + 1.0) / 2.0, min=0.0, max=1.0
                 )
 
-                output += [
-                    255.0
-                    * rearrange(x_sample.cpu().numpy(), "c h w -> h w c").astype(
-                        np.uint8
+                for x_sample in x_samples_ddim:
+                    array = 255.0 * rearrange(
+                        x_sample.cpu().numpy(), "c h w -> h w c"
                     )
-                    for x_sample in x_samples_ddim
-                ]
-    return output
+                    image = Image.fromarray(array.astype(np.uint8))
+                    outputs.append(image)
+            
+    return outputs
 
 
 def save_samples(samples: List[np.ndarray], path: str) -> None:
     for i, sample in enumerate(samples):
-        Image.fromarray(sample).save(f"{path}/{i}.png")
+        sample.save(f"{path}/{i}.png")
+
 
 

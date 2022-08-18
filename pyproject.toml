@@ -4,7 +4,7 @@ version = "0.1.0"
 description = ""
 authors = [ "Ben <benjamin@selas.studio>"]
 readme = "README.md"
-dependencies = {python = "^3.9", einops = "^0.4.1", transformers = "^4.21.1"}
+dependencies = {python = "^3.7", einops = "^0.4.1", transformers = "^4.21.1"}
 
 
 [build-system]

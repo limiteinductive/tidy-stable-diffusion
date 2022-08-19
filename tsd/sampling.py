@@ -331,15 +331,23 @@ class DDPM(nn.Module):
         return model_mean + nonzero_mask * (0.5 * model_log_variance).exp() * noise
 
     @torch.no_grad()
-    def p_sample_loop(self, shape, return_intermediates=False):
+    def p_sample_loop(self, shape, init_image: torch.Tensor = None, skip_timesteps: int=0, return_intermediates=False):
         device = self.betas.device
         b = shape[0]
+        indices = list(range(self.num_timesteps - skip_timesteps))[::-1]
         img = torch.randn(shape, device=device)
+
+        if init_image is None:
+            init_image = torch.zeros_like(img)
+
+        my_t = torch.ones([b], device=device, dtype=torch.long) * indices[0]
+        img = self.q_sample(init_image, my_t, img)
+
         intermediates = [img]
         for i in tqdm(
-            reversed(range(0, self.num_timesteps)),
+            indices,
             desc="Sampling t",
-            total=self.num_timesteps,
+            total=self.num_timesteps - skip_timesteps,
         ):
             img = self.p_sample(
                 img,
@@ -1086,6 +1094,7 @@ class PLMSSampler(object):
         noise_dropout=0.0,
         score_corrector=None,
         corrector_kwargs=None,
+        skip_timesteps: int=0,
         x_T=None,
         log_every_t=100,
         unconditional_guidance_scale=1.0,
@@ -1123,6 +1132,7 @@ class PLMSSampler(object):
             temperature=temperature,
             score_corrector=score_corrector,
             corrector_kwargs=corrector_kwargs,
+            skip_timesteps=skip_timesteps,
             x_T=x_T,
             log_every_t=log_every_t,
             unconditional_guidance_scale=unconditional_guidance_scale,
@@ -1139,6 +1149,7 @@ class PLMSSampler(object):
         ddim_use_original_steps=False,
         callback=None,
         timesteps=None,
+        skip_timesteps: int = 0,
         quantize_denoised=False,
         mask=None,
         x0=None,
@@ -1153,10 +1164,12 @@ class PLMSSampler(object):
     ):
         device = self.model.betas.device
         b = shape[0]
+        print("shape", shape)
         if x_T is None:
             img = torch.randn(shape, device=device)
         else:
             img = x_T
+            my_t = torch.ones([shape[0]], device=device, dtype=torch.long) * indices[0]
 
         if timesteps is None:
             timesteps = (
@@ -1175,14 +1188,8 @@ class PLMSSampler(object):
             timesteps = self.ddim_timesteps[:subset_end]
 
         intermediates = {"x_inter": [img], "pred_x0": [img]}
-        time_range = (
-            list(reversed(range(0, timesteps)))
-            if ddim_use_original_steps
-            else np.flip(timesteps)
-        )
-        total_steps = timesteps if ddim_use_original_steps else timesteps.shape[0]
-        print(f"Running PLMS Sampling with {total_steps} timesteps")
-
+        time_range = np.flip(timesteps[skip_timesteps:])
+        total_steps = len(time_range)
         iterator = tqdm(time_range, desc="PLMS Sampler", total=total_steps)
         old_eps = []
 

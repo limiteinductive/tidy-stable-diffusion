@@ -3,12 +3,24 @@ import os
 
 import numpy as np
 import torch
-from einops import rearrange
+from einops import rearrange, repeat
 from PIL import Image
 from tqdm import tqdm, trange
+from torchvision.transforms import functional as TF
 
 from tsd.sampling import LatentDiffusion, PLMSSampler
 from tsd.utils import seed_everything
+
+def load_img(path, width=512, height=512):
+    image = Image.open(path).convert("RGB")
+    w, h = image.size
+    print(f"loaded input image of size ({w}, {h}) from {path}")
+    w, h = map(lambda x: x - x % 32, (w, h))  # resize to integer multiple of 32
+    image = image.resize((width, height), resample=Image.LANCZOS)
+    image = np.array(image).astype(np.float32) / 255.0
+    image = image[None].transpose(0, 3, 1, 2)
+    image = torch.from_numpy(image)
+    return 2.*image - 1.
 
 
 def main():
@@ -43,7 +55,7 @@ def main():
     parser.add_argument(
         "--n_iter",
         type=int,
-        default=2,
+        default=1,
         help="sample this often",
     )
     parser.add_argument(
@@ -61,8 +73,18 @@ def main():
     parser.add_argument(
         "--batch_size",
         type=int,
-        default=3,
+        default=1,
         help="how many samples to produce for each given prompt. A.k.a. batch size",
+    )
+    parser.add_argument(
+        "--skip_timesteps",
+        type=int,
+        default=0,
+    )
+    parser.add_argument(
+        "--init_image",
+        type=str,
+        default=None,
     )
     parser.add_argument(
         "--n_rows",
@@ -114,6 +136,13 @@ def main():
     assert opt.prompt is not None
     data = [opt.batch_size * [opt.prompt]]
 
+    if opt.init_image:
+        init = load_img(opt.init_image).to(opt.device)
+        init = repeat(init, '1 ... -> b ...', b=opt.batch_size)
+        init = model.get_first_stage_encoding(model.encode_first_stage(init))
+    else:
+        init = None
+
     with torch.no_grad():
         with torch.autocast(device_type="cuda"):
             for _ in trange(opt.n_iter, desc="Sampling"):
@@ -133,7 +162,8 @@ def main():
                         unconditional_guidance_scale=opt.scale,
                         unconditional_conditioning=uc,
                         eta=opt.ddim_eta,
-                        x_T=None,
+                        skip_timesteps=opt.skip_timesteps,
+                        x_T=init,
                     )
 
                     x_samples_ddim = model.decode_first_stage(samples_ddim)
